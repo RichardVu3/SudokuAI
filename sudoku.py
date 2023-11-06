@@ -18,14 +18,14 @@ class SuDokuCollection:
     '''
     This class is to store the Sudoku puzzle and its solution to the Database
     '''
-    def __init__(self, source_data_path="~/personal/final-project-RichardVu3/sudoku.csv", re_read_data=False):
+    def __init__(self, source_data_path="~/personal/final-project-RichardVu3/sudoku.csv", db_name='sudoku.db', re_read_data=False):
         # We create a database in the folder where the source data file exists
         current_dir = os.getcwd() # get the current working directory
         database_path = source_data_path[:(source_data_path.rfind("/"))]
         if '~' in source_data_path:
             database_path = database_path.replace('~', os.path.expanduser('~'))
         os.chdir(database_path) # change the working directory to the one where the source data exists
-        self.connect = sqlite3.connect("sudoku.db")
+        self.connect = sqlite3.connect(db_name)
         self.cursor = self.connect.cursor()
         if re_read_data:
             self.source_data_path = source_data_path

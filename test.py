@@ -10,7 +10,7 @@ for text in sys.stdin:
 
 # ids = '8995909, 7941996, 7941421, 8687596, 7639009, 3907620, 4721579, 4721523, 3546782, 2901458, 1959271, 798098, 72578'
 
-games = SuDokuCollection().query_data(f"select id, puzzle, solution from sudoku where id in ({ids})", get_all=True)
+games = SuDokuCollection(source_data_path='/home/richardvu/intermediate-python-programming/SudokuAI/', db_name='unsolved_sudoku.db').query_data(f"select id, puzzle, solution from sudoku where id in ({ids})", get_all=True)
 
 total_games = len(games)
 
