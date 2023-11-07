@@ -12,7 +12,13 @@ for text in sys.stdin:
 
 games = SuDokuCollection(source_data_path='/home/richardvu/intermediate-python-programming/SudokuAI/', db_name='unsolved_sudoku.db').query_data(f"select id, puzzle, solution from sudoku where id in ({ids})", get_all=True)
 
+# games = SuDokuCollection(source_data_path='/home/richardvu/intermediate-python-programming/SudokuAI/', db_name='unsolved_sudoku.db').query_data(f"select id, puzzle, solution from sudoku", get_all=True)
+
 total_games = len(games)
+
+print(total_games)
+
+#sys.exit(0)
 
 games_solved = 0
 
