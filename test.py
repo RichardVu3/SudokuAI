@@ -18,6 +18,8 @@ total_games = len(games)
 
 print(total_games)
 
+#print(games[-1])
+
 #sys.exit(0)
 
 games_solved = 0
