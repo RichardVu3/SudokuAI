@@ -237,7 +237,7 @@ class SuDokuAI:
                 if value == 0:
                     self.knowledges[(row, column)] = set(range(1, 10))
                     for block in blocks:
-                        if self.is_same_block((row, column), block):
+                        if self.is_same_block(((row, column), block)):
                             blocks[block].append((row, column))
                 else:
                     self.known[(row, column)] = value
@@ -299,18 +299,18 @@ class SuDokuAI:
         2. For any known, send a known cell to the board to check the violation
         3. Add a cell the self.send
         '''
+        self.conclude_cells()
         times = 0
         while times <= 1:
-            self.conclude_cells()
+            self.hidden_single()
             if len(self.knowledges) == 0:
                 break
-            self.hidden_single()
-            # self.hidden_pair()
             self.naked_pair()
             self.pointing_pair()
             self.empty_rectangle()
+            self.y_wings()
             # self.naked_triple()
-            # self.x_wings()
+            self.x_wings()
             # self.naked_quad()
             # self.sword_fish()
             # self.forcing_chain()
@@ -329,9 +329,9 @@ class SuDokuAI:
             for knowledge in self.knowledges:
                 known_values = set(
                         [self.known[cell] for cell in self.known if \
-                        self.is_same_row(cell, knowledge) or\
-                        self.is_same_column(cell, knowledge) or\
-                        self.is_same_block(cell, knowledge)]
+                        self.is_same_row((cell, knowledge)) or\
+                        self.is_same_column((cell, knowledge)) or\
+                        self.is_same_block((cell, knowledge))]
                     )
                 self.remove_numbers(knowledge, known_values)
             # Then, check whether we can conclude any cells
@@ -365,7 +365,7 @@ class SuDokuAI:
         for row in range(0, 9, 3):
             for column in range(0, 9, 3):
                 for cell in self.knowledges:
-                    if self.is_same_block(cell, (row, column)):
+                    if self.is_same_block((cell, (row, column))):
                         if (row, column) not in blocks:
                             blocks[(row, column)] = []
                         blocks[(row, column)].append(cell)
@@ -391,19 +391,19 @@ class SuDokuAI:
             '''
             cell_1, cell_2 = pair
             # Row
-            if self.is_same_row(cell_1, cell_2):
+            if self.is_same_row((cell_1, cell_2)):
                 for cell in set(self.knowledges.keys()).difference(set(cells)):
-                    if self.is_same_row(cell, cell_1):
+                    if self.is_same_row((cell, cell_1)):
                         self.remove_numbers(cell, set(possible_set))
             # Column
-            elif self.is_same_column(cell_1, cell_2):
+            elif self.is_same_column((cell_1, cell_2)):
                 for cell in set(self.knowledges.keys()).difference(set(cells)):
-                    if self.is_same_column(cell, cell_1):
+                    if self.is_same_column((cell, cell_1)):
                         self.remove_numbers(cell, set(possible_set))
             # Block
-            if self.is_same_block(cell_1, cell_2):
+            if self.is_same_block((cell_1, cell_2)):
                 for cell in set(self.knowledges.keys()).difference(set(cells)):
-                    if self.is_same_block(cell, cell_1):
+                    if self.is_same_block((cell, cell_1)):
                         self.remove_numbers(cell, set(possible_set))
         
         # Get all the cells with 2 possible values
@@ -416,7 +416,7 @@ class SuDokuAI:
                     run_naked_pair(pair)
             if len(cells) == 2:
                 run_naked_pair(cells)
-        self.conclude_cells()
+        self.hidden_single()
 
     def pointing_pair(self):
         '''
@@ -436,17 +436,17 @@ class SuDokuAI:
                         candidates[value] = set()
                     candidates[value].add(cell)
             for candidate in candidates:
-                if self.is_same_row(*candidates[candidate]):
+                if self.is_same_row(candidates[candidate]):
                     row = list(candidates[candidate])[0][0]
                     for knowledge in set(self.knowledges.keys()).difference(set(cells_in_block)):
                         if knowledge[0] == row and candidate in self.knowledges[knowledge]:
                             self.remove_numbers(knowledge, set([candidate]))
-                elif self.is_same_column(*candidates[candidate]):
+                elif self.is_same_column(candidates[candidate]):
                     column = list(candidates[candidate])[0][1]
                     for knowledge in set(self.knowledges.keys()).difference(set(cells_in_block)):
                         if knowledge[1] == column and candidate in self.knowledges[knowledge]:
                             self.remove_numbers(knowledge, set([candidate]))
-            self.conclude_cells()
+            self.hidden_single()
 
     def empty_rectangle(self):
         '''
@@ -463,7 +463,7 @@ class SuDokuAI:
                     to_lookup, inverse_lookup = 1, 0
                 else:
                     to_lookup, inverse_lookup = 0, 1
-                cells_to_check = {cell for cell in self.knowledges if (not self.is_same_block(cell, cell_to_follow)) and cell[to_lookup] == cell_to_follow[to_lookup] and candidate in self.knowledges[cell]}
+                cells_to_check = {cell for cell in self.knowledges if (not self.is_same_block((cell, cell_to_follow))) and cell[to_lookup] == cell_to_follow[to_lookup] and candidate in self.knowledges[cell]}
                 blocks = {tuple(block.intersection(set(self.knowledges.keys()))) for cell in cells_to_check for block in self.blocks if cell in block}
                 for block in blocks:
                     cells_with_candidate = {cell for cell in block if candidate in self.knowledges[cell]}
@@ -479,13 +479,13 @@ class SuDokuAI:
                 candidates_in_check = [value[0] for value in Counter([possible for cell in cells_in_line for possible in cells_in_line[cell]]).most_common() if value[1] == 2]
                 for candidate in candidates_in_check:
                     pair = {cell for cell in cells_in_line if candidate in cells_in_line[cell]}
-                    if not self.is_same_block(*pair):
+                    if not self.is_same_block(tuple(pair)):
                         directions = lookup_empty_rectangle(row_or_column, candidate, *pair)
                         for direction in directions:
                             row, column = direction if row_or_column == 0 else direction[::-1]
                             if (row, column) in self.knowledges and candidate in self.knowledges[(row, column)]:
                                 self.remove_numbers((row, column), set([candidate]))
-            self.conclude_cells()
+            self.hidden_single()
     
     def naked_triple(self):
         '''
@@ -494,7 +494,7 @@ class SuDokuAI:
         '''
         if len(self.knowledges) == 0:
             return
-        self.conclude_cells()
+        self.hidden_single()
 
     def x_wings(self):
         '''
@@ -503,7 +503,60 @@ class SuDokuAI:
         '''
         if len(self.knowledges) == 0:
             return
-        self.conclude_cells()
+
+        for line, line_perpen in [(0, 1), (1, 0)]:
+            for align in {cell[line] for cell in self.knowledges}:
+                all_values = [value for cell in self.knowledges if cell[line] == align for value in self.knowledges[cell]]
+                candidates = [value[0] for value in Counter(all_values).most_common() if value[1] == 2]
+                for candidate in candidates:
+                    all_cells_with_candidates = {cell: value for cell, value in self.knowledges.items() if candidate in self.knowledges[cell]}
+                    cells_with_candidates = [cell for cell in all_cells_with_candidates if cell[line] == align]
+                    aligned_perpens = {cell[line_perpen] for cell in cells_with_candidates}
+                    all_aligned_cells = {cell for cell in self.knowledges if cell[line_perpen] in aligned_perpens and candidate in self.knowledges[cell] and not self.is_same_block((cell, *cells_with_candidates), any_pair=True)}
+                    aligns_of_aligned_cells = {counter[0] for counter in Counter([cell[line] for cell in all_aligned_cells]).most_common() if counter[1] == 2}
+                    for align_of_aligned_cells in aligns_of_aligned_cells:
+                        if len([cell for cell in all_cells_with_candidates if cell[line] == align_of_aligned_cells and candidate in all_cells_with_candidates[cell] and cell not in cells_with_candidates]) != 2:
+                            continue
+                        aligned_cells = {cell for cell in all_aligned_cells if cell[line] == align_of_aligned_cells}
+                        cells_to_remove_candidates = {cell for cell in self.knowledges if cell[line_perpen] in aligned_perpens and candidate in self.knowledges[cell] and cell not in cells_with_candidates and cell not in aligned_cells}
+                        for cell_to_remove_candidate in cells_to_remove_candidates:
+                            self.remove_numbers(cell_to_remove_candidate, {candidate})
+            self.hidden_single()
+
+    def y_wings(self):
+        '''
+        To be input here.
+        '''
+        if len(self.knowledges) == 0:
+            return
+
+        def find_pivot(cell_1, cell_2, cell_3):
+            pivot, wings = None, None
+            if self.is_peer((cell_1, cell_2)) and self.is_peer((cell_1, cell_3)) and not self.is_peer((cell_2, cell_3)):
+                pivot, wings = cell_1, (cell_2, cell_3)
+            elif self.is_peer((cell_2, cell_1)) and self.is_peer((cell_2, cell_3)) and not self.is_peer((cell_1, cell_3)):
+                pivot, wings = cell_2, (cell_1, cell_3)
+            elif self.is_peer((cell_3, cell_1)) and self.is_peer((cell_3, cell_2)) and not self.is_peer((cell_1, cell_2)):
+                pivot, wings = cell_3, (cell_1, cell_2)
+            return pivot, wings
+
+        two_value_cells = {cell: values for cell, values in self.knowledges.items() if len(values) == 2}
+        groups = [group for group in combinations(two_value_cells.keys(), 3) if not (self.is_same_block(group) or self.is_same_row(group) or self.is_same_column(group))]
+        for group in groups:
+            if len({tuple(sorted(list(two_value_cells[cell]))) for cell in group}) != 3 or len({value for cell in group for value in two_value_cells[cell]}) != 3:
+                continue
+            pivot, wings = find_pivot(*group)
+            if not pivot:
+                continue
+            wings_value = two_value_cells[wings[0]].intersection(two_value_cells[wings[1]])
+            if len(wings_value) != 1:
+                continue
+            for cell in self.knowledges:
+                if cell in group:
+                    continue
+                if list(wings_value)[0] in self.knowledges[cell] and self.is_peer((cell, wings[0])) and self.is_peer((cell, wings[1])):
+                    self.remove_numbers(cell, wings_value)
+        self.hidden_single()
 
     def hidden_pair(self):
         '''
@@ -512,7 +565,7 @@ class SuDokuAI:
         '''
         if len(self.knowledges) == 0:
             return
-        self.conclude_cells()
+        self.hidden_single()
 
     def naked_quad(self):
         '''
@@ -520,27 +573,29 @@ class SuDokuAI:
         '''
         if len(self.knowledges) == 0:
             return
-        self.conclude_cells()
+        self.hidden_single()
 
     def sword_fish(self):
         if len(self.knowledges) == 0:
             return
-        self.conclude_cells()
+        self.hidden_single()
 
     def forcing_chain(self):
         if len(self.knowledges) == 0:
             return
-        self.conclude_cells()
+        self.hidden_single()
 
-    @staticmethod
-    def is_same_row(*cells):
+    def is_same_row(self, cells, any_pair=False):
         return len(set([cell[0] for cell in cells])) == 1
 
-    @staticmethod
-    def is_same_column(*cells):
+    def is_same_column(self, cells, any_pair=False):
         return len(set([cell[1] for cell in cells])) == 1
 
-    @staticmethod
-    def is_same_block(*cells):
+    def is_same_block(self, cells, any_pair=False):
         row, column = cells[0]
+        if any_pair:
+            return any([cell[0] in range((row//3)*3, (row//3)*3+3) and cell[1] in range((column//3)*3, (column//3)*3+3) for cell in cells[1:]])
         return all([cell[0] in range((row//3)*3, (row//3)*3+3) and cell[1] in range((column//3)*3, (column//3)*3+3) for cell in cells[1:]])
+    
+    def is_peer(self, cells, any_pair=False):
+        return self.is_same_row(cells, any_pair) or self.is_same_column(cells, any_pair) or self.is_same_block(cells, any_pair)
