@@ -1,7 +1,8 @@
 from sudoku import *
 import sys
 
-id, puzzle, solution = SuDokuCollection().query_data(f"select id,  puzzle, solution from sudoku where id = 117", get_all=False)
+id, puzzle, solution = SuDokuCollection(source_data_path='/home/richardvu/intermediate-python-programming/SudokuAI/', db_name='unsolved_sudoku.db')\
+    .query_data(f"select id,  puzzle, solution from sudoku where id = 1594", get_all=False)
 
 # Current unsolved: 464
 

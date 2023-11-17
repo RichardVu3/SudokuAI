@@ -1,2 +1,0 @@
-cat test_game_id_2.txt | python test.py > result.txt
-echo -e $(cat result.txt| grep -w 'Not solved' | sed 's/ /\\n/g') | tail -n +4
