@@ -1,31 +1,29 @@
-import random, sqlite3, os, sys
+import random, sqlite3, os
 import pandas as pd
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 from collections import Counter
 from itertools import combinations
 
 
 class GameViolation(Exception):
     '''
-    GameViolation is raised under 2 circumstances:
-    1. The input by the AI is given to a filled cell (this is to ensure that the AI always give the correct answer)
-    2. The Game rule is violated
+    GameViolation is raised when The Game rule is violated (this is to ensure that the AI always give the correct answer)
     '''
     pass
 
 
 class SuDokuCollection:
     '''
-    This class is to store the Sudoku puzzle and its solution to the Database
+    This class is to store the Sudoku puzzles and solutions to the Database
     '''
-    def __init__(self, source_data_path="~/personal/final-project-RichardVu3/sudoku.csv", db_name='sudoku.db', re_read_data=False):
+    def __init__(self, source_data_path="~/personal/final-project-RichardVu3/sudoku.csv", re_read_data=False):
         # We create a database in the folder where the source data file exists
         current_dir = os.getcwd() # get the current working directory
         database_path = source_data_path[:(source_data_path.rfind("/"))]
         if '~' in source_data_path:
             database_path = database_path.replace('~', os.path.expanduser('~'))
         os.chdir(database_path) # change the working directory to the one where the source data exists
-        self.connect = sqlite3.connect(db_name)
+        self.connect = sqlite3.connect("sudoku.db")
         self.cursor = self.connect.cursor()
         if re_read_data:
             self.source_data_path = source_data_path
@@ -97,7 +95,7 @@ class SuDokuCollection:
 
 class Board:
     '''
-    This is the Sudoku game representation
+    This is the representation of the Sudoku game
     '''
     def __init__(self, puzzle, solution):
         '''
@@ -119,25 +117,11 @@ class Board:
         self.solution = deserialize(solution)
         self.given_cells = [(row, column) for row in range(9) for column in range(9) if self.puzzle[row][column] != 0] # the cells are given at the beginning of the game
     
-    def store_solved(self):
-        '''
-        Store the solution of the a solved game into database
-        '''
-        pass
-    
-    def check_store_solved(self):
-        '''
-        Check internal database whether a sudoku game has already been solved in the past
-        
-        Output: return True if the sudoku is in the database
-        '''
-        pass
-    
     def is_solved(self):
         '''
-        Check whether all the cells in the Sudoku board are filled or not
+        Check whether the solved puzzle is accurate
         
-        Output: return True if all the celss are filled, False otherwise
+        Output: return True if the solved puzzle is the same as the solution, False otherwise
         '''
         return self.puzzle == self.solution
     
@@ -205,6 +189,36 @@ class Board:
         '''
         row, column = cell
         self.puzzle[row][column] = value
+
+    def get_puzzle(self):
+        '''
+        Safely access the class attribute `puzzle`
+        '''
+        return self.puzzle
+    
+    def get_solution(self):
+        '''
+        Safely access the class attribute `solution`
+        '''
+        return self.solution
+    
+    def get_cell_value(self, position):
+        '''
+        Safely get the value at `position`
+
+        Input: position: a tuple of (row, column)
+
+        Return: the value at position
+        '''
+        row, column = position
+        value = int(self.puzzle[row][column])
+        return value if value > 0 else None
+    
+    def get_given_cells(self):
+        '''
+        Safely access the class attribute `given_cells`
+        '''
+        return self.given_cells
     
     
 class SuDokuAI:
@@ -213,10 +227,7 @@ class SuDokuAI:
     '''
     def __init__(self, board):
         '''
-        There should be a set to store all known_cell, all filled_cell,
-        the block, row and column to be checked
-        There is an internall knowledge (a dictionary stores the unknown cells and
-        their possible values)
+        Initiate all necessary attributes
 
         Highlights: The SuDoKuAI only reads the board the first time to initialize the puzzle. Afterwards, it interacts with the Board
 
@@ -226,11 +237,10 @@ class SuDokuAI:
         self.knowledges = dict()
         # Contains all the known cells
         self.known = dict()
-        # This is the cell the AI sends to the Board. By default, this set contains all given cells
+        # This is the cell the AI sends to the Board. When the class is instantiated, this set contains all given cells
         self.send = set()
         # Group all the cells in the same block together
         blocks = {(row, column): [] for row in range(0,9,3) for column in range(0,9,3)}
-
         for row in range(9):
             for column in range(9):
                 value = board[row][column]
@@ -292,12 +302,14 @@ class SuDokuAI:
     
     def infer_knowledge(self):
         '''
-        This is the core brain of the AI. The steps to execute:
-        1. Run self.known_cell to check whether we can infer any cells
-        1. For each cell in self.knowledges, check whether we can remove any numbers based on the row, column, block or the relationship between
-        the knowledge
-        2. For any known, send a known cell to the board to check the violation
-        3. Add a cell the self.send
+        This is the core coordination of the AI. The function is to use strategies to solve the Sudoku game.
+
+        First, the knowledge is initiated by calling conclude_cells()
+        Then, if the game can be solely solved with hidden_single(), end the function
+        Else, call multiple high-level strategies to infer new knowledge to solve the game.
+
+        There is one loop with a tracker varibale `times`. This loop is to ensure that all the high-level strategies can
+        interact with each other to solve the game at least once.
         '''
         self.conclude_cells()
         times = 0
@@ -309,16 +321,13 @@ class SuDokuAI:
             self.pointing_pair()
             self.empty_rectangle()
             self.y_wings()
-            # self.naked_triple()
             self.x_wings()
-            # self.naked_quad()
-            # self.sword_fish()
-            # self.forcing_chain()
             times += 1
 
     def conclude_cells(self):
         '''
-        Something to be input here
+        Remove all invalid numbers from the knowledge base based on inference process.
+        If a value is ensured to be in a position, remove that from the knowledge base and add it to self.known
         '''
         bfr_infer, aftr_infer = 0, 1
         while aftr_infer != 0:
@@ -385,24 +394,26 @@ class SuDokuAI:
         '''
         if len(self.knowledges) == 0:
             return
-        def run_naked_pair(pair):
+        def run_naked_pair(pair, possible_set):
             '''
-            Something to be input here
+            Execute the elimination of the naked pair
+            Input: pair: the naked pair
+                    possible_set: the values to be removed from the pair
             '''
             cell_1, cell_2 = pair
             # Row
             if self.is_same_row((cell_1, cell_2)):
-                for cell in set(self.knowledges.keys()).difference(set(cells)):
+                for cell in set(self.knowledges.keys()).difference(set(pair)):
                     if self.is_same_row((cell, cell_1)):
                         self.remove_numbers(cell, set(possible_set))
             # Column
             elif self.is_same_column((cell_1, cell_2)):
-                for cell in set(self.knowledges.keys()).difference(set(cells)):
+                for cell in set(self.knowledges.keys()).difference(set(pair)):
                     if self.is_same_column((cell, cell_1)):
                         self.remove_numbers(cell, set(possible_set))
             # Block
             if self.is_same_block((cell_1, cell_2)):
-                for cell in set(self.knowledges.keys()).difference(set(cells)):
+                for cell in set(self.knowledges.keys()).difference(set(pair)):
                     if self.is_same_block((cell, cell_1)):
                         self.remove_numbers(cell, set(possible_set))
         
@@ -413,9 +424,9 @@ class SuDokuAI:
             cells = [key for key in two_values_cells.keys() if two_values_cells[key] == set(possible_set)]
             if len(cells) > 2:
                 for pair in list(combinations(cells, 2)):
-                    run_naked_pair(pair)
-            if len(cells) == 2:
-                run_naked_pair(cells)
+                    run_naked_pair(pair, possible_set)
+            elif len(cells) == 2:
+                run_naked_pair(cells, possible_set)
         self.hidden_single()
 
     def pointing_pair(self):
@@ -450,7 +461,11 @@ class SuDokuAI:
 
     def empty_rectangle(self):
         '''
-        Something to be input later
+        An Empty Rectangle as a rectangle that is inside a Square and the corners of which do not contain a particular Candidate.
+        If we can find a Strong Link that has one of its ends on the same Row as one of the Rows of the Square that contains the
+        Empty Rectangle and if that Row does not contain any corner of the Empty Rectangle, then the Candidate can not be the
+        solution in the Cell that is located on the same Row as the other end of the Strong Link and on the Column of the Square
+        that does not contain any corner of the Empty Rectangle.
         '''
         if len(self.knowledges) == 0:
             return
@@ -486,15 +501,6 @@ class SuDokuAI:
                             if (row, column) in self.knowledges and candidate in self.knowledges[(row, column)]:
                                 self.remove_numbers((row, column), set([candidate]))
             self.hidden_single()
-    
-    def naked_triple(self):
-        '''
-        Three cells in the same row, column or block having only three candidates or subsets of three candidates, then other appearances of the same
-        candidate in the same row, column or block can be eliminated.
-        '''
-        if len(self.knowledges) == 0:
-            return
-        self.hidden_single()
 
     def x_wings(self):
         '''
@@ -525,7 +531,10 @@ class SuDokuAI:
 
     def y_wings(self):
         '''
-        To be input here.
+        Find a cell with exactly two candidates. We'll call this cell a pivot.
+        Look for two more cells with 2 candidates as well. These cells (called pincers) should be in the same row, column or block as the pivot.
+        One of the two numbers in each pincer should be the same as in the pivot. The other number is the same for both pincers.
+        Look where the both pincers intersect. If that cell contains a candidate that is shared by both pincers, we can eliminate it.
         '''
         if len(self.knowledges) == 0:
             return
@@ -556,33 +565,6 @@ class SuDokuAI:
                     continue
                 if list(wings_value)[0] in self.knowledges[cell] and self.is_peer((cell, wings[0])) and self.is_peer((cell, wings[1])):
                     self.remove_numbers(cell, wings_value)
-        self.hidden_single()
-
-    def hidden_pair(self):
-        '''
-        A pair of candidates only appears in 2 cells in a row, column or block but they aren't the only candidates in those 2 cells, then all other
-        candidates other than the pair can be eliminated and yield a Naked Pair.
-        '''
-        if len(self.knowledges) == 0:
-            return
-        self.hidden_single()
-
-    def naked_quad(self):
-        '''
-        Similar to naked_pair and naked_triple but apply to 4 candidates.
-        '''
-        if len(self.knowledges) == 0:
-            return
-        self.hidden_single()
-
-    def sword_fish(self):
-        if len(self.knowledges) == 0:
-            return
-        self.hidden_single()
-
-    def forcing_chain(self):
-        if len(self.knowledges) == 0:
-            return
         self.hidden_single()
 
     def is_same_row(self, cells, any_pair=False):
