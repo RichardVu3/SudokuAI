@@ -16,7 +16,7 @@ class SuDokuCollection:
     '''
     This class is to store the Sudoku puzzles and solutions to the Database
     '''
-    def __init__(self, source_data_path="~/personal/final-project-RichardVu3/sudoku.csv", re_read_data=False):
+    def __init__(self, source_data_path="~/sudoku.csv", re_read_data=False):
         # We create a database in the folder where the source data file exists
         current_dir = os.getcwd() # get the current working directory
         database_path = source_data_path[:(source_data_path.rfind("/"))]
