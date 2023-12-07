@@ -1,7 +1,7 @@
 # Project description
 Video walkthrough is here: https://www.youtube.com/watch?v=R9cXEKlBsh4
 
-My project is to write an AI program to automatically solve Sudoku game.
+This AI program can solve a Sudoku game within a second without the backtracking algorithm.
 
 Disclaimer: this AI program has nothing to do with Deep Learning Neural Networks framework. Instead, it is implemented based on the principles of Knowledge Representation and Reasoning (check it out here: https://en.wikipedia.org/wiki/Knowledge_representation_and_reasoning)
 
